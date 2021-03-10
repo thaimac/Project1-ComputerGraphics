@@ -1,3 +1,9 @@
+// Computer Graphics Project 1 Bacteria Destroyer
+// Tyler McEwen
+// Tyler Booth
+// Mohamed Ridvan Kandakath Mohamed
+
+
 // Vertex shader program
 var VSHADER_SOURCE =
   'attribute vec4 a_Position;\n' +
@@ -15,6 +21,7 @@ var FSHADER_SOURCE =
 
 var main = function() {
 
+    // Initialize variables
 	var currBacNum = 0;
 	var totalBacteria = 5;
     var poisonedBacteria = 0;
@@ -25,46 +32,50 @@ var main = function() {
     var continuous = false;
     var gameOver = false;
 
-	//Create main canvas
+	// Create main canvas
 	var canvas = document.getElementById('webgl');
-	//Render context for main canvas
+	// Render context for main canvas
 	var gl = canvas.getContext('webgl');
     
-    // store canvas dimentions
+    // Store canvas dimentions for future use
     var gameWidth = canvas.width;
     var gameHeight = canvas.height;
     
-    
+    // If failed to render the main canvas
 	if(!gl) {
 		console.log("Failed to render this context");
 		return false;
 	}
 
-  //Create buffer to bind vertex data to
-  var vertexBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    // Create buffer to bind vertex data to
+    var vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 
-  //Initialize shaders and handle error
-  if(!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
-    console.log("Failed to initialize shaders.");
-  }
+    // Initialize shaders and handle error
+    if(!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+        console.log("Failed to initialize shaders.");
+    }
 
-  var coordinates = gl.getAttribLocation(gl.program, "a_Position");
-  var fragColor = gl.getUniformLocation(gl.program, "FragColor");
+    var coordinates = gl.getAttribLocation(gl.program, "a_Position");
+    var fragColor = gl.getUniformLocation(gl.program, "FragColor");
 
-  gl.vertexAttribPointer(coordinates, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(coordinates, 3, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(coordinates);
 
-  //function used to draw main disk and all bacteria that will grow on it 
-  function drawCircle(gl,x,y,r,color, fragColor) {
-    var points = [];
-    for (var i=0.0; i<=360; i+=1) {
-      var y1 = r*Math.sin(i)+y;
-			var x1 = r*Math.cos(i)+x;
+    // Function used to draw main disk and all bacteria that will grow on it
+    // We used a triangle strip to implement drawing a circle since webgl does not
+    // Implement circle drawing directly
+    function drawCircle(gl,x,y,radius,color, fragColor) {
+        var points = [];
+        // Loop through adding points to array around the specified x, y points with size radius
+        for (var i=0.0; i<=360; i+=1) {
+            var y1 = radius*Math.sin(i)+y;
+			var x1 = radius*Math.cos(i)+x;
 
-			var y2 = r*Math.sin(i+1)+y;
-			var x2 = r*Math.cos(i+1)+x;
-
+			var y2 = radius*Math.sin(i+1)+y;
+			var x2 = radius*Math.cos(i+1)+x;
+            
+            // push points unto points array
 			points.push(x);
 			points.push(y);
 			points.push(0);
@@ -76,47 +87,51 @@ var main = function() {
 			points.push(x2);
 			points.push(y2);
 			points.push(0);
+        }
+
+        // get buffer data
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
+        gl.uniform4f(fragColor, color[0], color[1], color[2], color[3]);
+        gl.clearColor(0, 1, 0, 0.9);
+        // draw the triangle strip
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 360*3);
     }
-
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
-
-    gl.uniform4f(fragColor, color[0], color[1], color[2], color[3]);
-    gl.clearColor(0, 1, 0, 0.9);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 360*3);
-  }
     
     
 
-  //Function to randomly choose quadrant that bacteria spawns in
+    //Function to randomly choose the quadrant that the bacteria spawn in
 	function selectQuadrant(n){
     n = Math.random() >= 0.5 ? n*(-1) : n;
 		return n;
 	}
 
-  //Class to hold data about each individual bacteria
+    //Class to hold data about each individual bacteria
 	class Bacteria {
 
     //spawns bacteria
 		spawn() {
+            // select random location and colour for the bacteria
 			this.randomCoordinates();
             this.x = this.randomX*Math.sin(this.angle);
 			this.y = this.randomY*Math.cos(this.angle);
 			this.radius = 0.04;
 			this.color = [Math.random(), Math.random(), Math.random(), 1];
 			this.alive = true;
+            // increment number of active bacteria
 			currBacNum++;
 		}
 
+        // Used to increase bacteria size each frame
 		update() {
             
-        //once a bacterium reaches 0.3 radius it has passed threshold, mark it
-        if(this.radius > 0.3) {
-            //this.alive = false;
-            //bacteria.splice(this,1);
-            thresholdCount++;
-        }
+            //once a bacterium reaches 0.3 radius it has passed threshold, mark it
+            if(this.radius > 0.3) {
+                //this.alive = false;
+                //bacteria.splice(this,1);
+                thresholdCount++;
+            }
 			
-            //Increase the size of each bacteria by 'radius' at each tick. Adjust to modify difficulty
+            //Increase the size of bacteria by 'radius' at each tick. Adjust to modify difficulty
 			this.radius += 0.0003;
 			//Grow bacteria
             drawCircle(gl, this.x, this.y, this.radius, this.color, fragColor);
@@ -136,36 +151,40 @@ var main = function() {
         spawnParticle(startX, startY){
             this.x = startX;
             this.y = startY;
+            // size of explosion particles
             this.radius = 0.005
         }
         
+        // runs each frame to update particles movement
         update(){
             // increase particle size to appear as an explosion
             this.radius += 0.0005;
+            // draw the paricle
             drawCircle(gl, this.x, this.y, this.radius, [0, 0, 0, 1], fragColor);
             
             // once particle reaches threshold remove them
             if(this.radius > 0.01) {
                 particlesArray.splice(this,1);
             }
-            
         }
 
     }
 
-  // Create and push new Bacteria objects into bacteria array, then spawn each Bacteria
+    // Create and push new Bacteria objects into bacteria array, then spawn each Bacteria
+    // Change totalBacteria to increase difficulty
 	for(var i = 0; i<totalBacteria; i++){
 		bacteria.push(new Bacteria());
 		bacteria[i].spawn();
 	}
 
-  //Function that carries out the gameplay
+    //Function that carries out the gameplay
 	function play() {
         
         // set the game mode
         document.getElementById("gameMode").addEventListener("click", function() {
             // change to continuous spawns
             if(continuous == false && gameOver == false){
+                // used to set game mode
                 continuous = true;
                 // change button text
                 document.getElementById("gameMode").innerHTML = "Continuous";
@@ -198,6 +217,7 @@ var main = function() {
                 currBacNum--;
             }
             
+            // update text for game over
             document.getElementById('pointsText').innerHTML = "Final Score: " + points;
             document.getElementById('bactRemoved').innerHTML = "Game Over!";
             
@@ -227,6 +247,7 @@ var main = function() {
     
     function mouseClick(ev, gl, canvas){
         
+        // get x and y values from mouse environment
         var mouseX = ev.clientX;
         var mouseY = ev.clientY;
         
@@ -269,14 +290,12 @@ var main = function() {
                 
                 currBacNum--;
                 
-                // use this for continuous spawn of new bacteria
+                // Use this for continuous spawn of new bacteria
                 if (continuous == true){
                     // create new bacteria
                     bacteria.push(new Bacteria());
                     bacteria[totalBacteria - 1].spawn();
                 }
-                
-                
             }
         }
         
@@ -286,21 +305,22 @@ var main = function() {
         }
     }
 
-    // calculate points
+    // Calculate the game points
     function gamePoints(bacteriaSize){
         // calculate points recieved for each click, base is 120 but will recieve less for larger bacteria
         points = points + (120 - Math.floor(bacteriaSize * 300));
     }
     
+    // Function used to draw particles in a way that appears as an explosion
     function explosionParticleLocation(locationX, locationY){
-            // create 5 particles for explosion
+            // Create 5 particles for explosion
             particlesArray.push(new explosionParticles());
             particlesArray.push(new explosionParticles());
             particlesArray.push(new explosionParticles());
             particlesArray.push(new explosionParticles());
             particlesArray.push(new explosionParticles());
             
-            // set the location of all particles
+            // Set the location of all particles
             particlesArray[0].spawnParticle(locationX + 0.03, locationY);
             particlesArray[1].spawnParticle(locationX - 0.03, locationY);
             particlesArray[2].spawnParticle(locationX, locationY + 0.03);
@@ -308,8 +328,6 @@ var main = function() {
             particlesArray[3].spawnParticle(locationX, locationY);
     }
     
-    
-    
-  //Start game
+    // Start game
 	play();
 }
